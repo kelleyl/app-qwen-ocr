@@ -272,13 +272,14 @@ class QwenOcr(ClamsApp):
                 images, prompts['ocr_system'], prompts['ocr_user'], max_new_tokens, temperature, num_beams,
             )
             for (source_id, origin_id, _), text in zip(batch, outputs):
-                td = ocr_view.new_textdocument(
-                    text=text,
-                    document=video_doc.id,
-                    origin=origin_id,
-                    provenance='derived',
-                    mime='application/json',
-                )
+                # Create TD with text+mime via the canonical path; write
+                # document/origin/provenance directly into properties to
+                # bypass MMIF's _props_pending machinery (which would otherwise
+                # spawn bookkeeping Annotation/v6 records in a downstream view).
+                td = ocr_view.new_textdocument(text=text, mime='application/json')
+                td.properties['document'] = video_doc.id
+                td.properties['origin'] = origin_id
+                td.properties['provenance'] = 'derived'
                 align = ocr_view.new_annotation(AnnotationTypes.Alignment)
                 align.add_property('source', source_id)
                 align.add_property('target', td.long_id)
@@ -304,14 +305,15 @@ class QwenOcr(ClamsApp):
                     texts_in, prompts['post_system'], prompts['post_user'], max_new_tokens, temperature, num_beams,
                 )
                 for rec, text in zip(batch, texts_out):
-                    # Don't pass `document` here — using a TextDocument long-id
-                    # as a document reference triggers MMIF to mint redundant
-                    # bookkeeping Annotation entries. The Alignment below carries
-                    # the linkage between the OCR text and the post-processed text.
-                    td = post_view.new_textdocument(
-                        text=text,
-                        mime='application/json',
-                    )
+                    td = post_view.new_textdocument(text=text, mime='application/json')
+                    # origin = the original TimeFrame from the upstream SWT view
+                    # (so a downstream consumer can trace post-text -> frame
+                    # without walking through the OCR view).
+                    td.properties['origin'] = rec['origin']
+                    td.properties['provenance'] = 'derived'
+                    # The Alignment links this post-TD to the OCR-TD it was
+                    # derived from; no `document` property on the post-TD itself
+                    # to keep this view minimal.
                     align = post_view.new_annotation(AnnotationTypes.Alignment)
                     align.add_property('source', rec['td_long_id'])
                     align.add_property('target', td.long_id)
