@@ -15,7 +15,7 @@ To trace a post-processed text back to a frame:
 
 - Docker (or local Python with CUDA-capable GPU)
 - GPU strongly recommended. Default model (`Qwen/Qwen3.5-2B`) needs ~5 GB peak VRAM with `transformers` BF16 inference. `Qwen3.5-4B` peaks at the same ~5 GB (Mixture-of-Experts: only active experts live on device).
-- ~10 GB image size (torch + transformers + CUDA stack), comparable to `app-smolvlm2-captioner`.
+- ~10 GB container image (torch + transformers + CUDA stack).
 
 ## User instructions
 
