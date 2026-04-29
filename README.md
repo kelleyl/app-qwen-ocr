@@ -122,17 +122,6 @@ For input MMIF `M`, each invocation appends:
 
 You may also see `Annotation/v6` entries in the post-processing view — these are framework-generated lineage records that mirror the source's `document`/`origin`/`provenance` properties when an `Alignment` references a cross-view `TextDocument`. They don't affect alignment traversal.
 
-## Performance reference (Qwen3.5-2B, default config)
-
-Benchmarked on 78 chyron frames from a NewsHour pilot dataset (ground truth = human-cataloged `etd_text`):
-
-| Pipeline | Line 1 exact | Normalized exact | Attr F1 | Total VRAM | Wall time (78 items) |
-|---|---|---|---|---|---|
-| SmolVLM2 OCR + Qwen3.5-9B formatter (current production) | 0.64 | 0.73 | 0.85 | ~30 GB across 2 services | (cached OCR) |
-| **`app-qwen-ocr` with `Qwen3.5-2B` doing both stages** | **0.80** | **0.85** | **0.87** | **~5 GB single service** | **25 s end-to-end** |
-
-The 2B improvement over SmolVLM2 comes mostly from preserving the line break between name and role/affiliation, which makes the formatter's job tractable. SmolVLM2 frequently emits `"NAME ROLE"` on a single line; Qwen3.5-2B emits `"NAME\nROLE"`.
-
 ## Resources
 
 - [CLAMS Documentation](https://clams.ai)
