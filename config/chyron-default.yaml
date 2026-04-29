@@ -1,0 +1,115 @@
+# config/chyron-default.yaml
+#
+# Two-stage chyron OCR + cataloger-style formatting.
+#
+# Stage 1 (`ocr_prompt`) extracts the on-screen text from a chyron frame.
+# Stage 2 puts the rules+examples in `post_system_prompt` (system role) and
+# only the per-item input wrapper in `post_prompt` (user role). Keeping the
+# few-shot examples in the system role prevents the model from continuing the
+# example pattern on its own output (no "Input: ... Output: ..." leakage).
+#
+# CLI flags override these values. To use this config: pass `--config config/chyron-default.yaml`.
+
+ocr_prompt: |
+  Read ONLY the chyron caption identifying the person speaking — typically the
+  lower-third banner with the person's name and role.
+
+  Ignore all other text in the frame:
+  - location/city overlays in the corners (e.g. "TRENTON", "NEWARK", "LIVE")
+  - timestamp/temporal labels (e.g. "YESTERDAY", "FILE FOOTAGE")
+  - background signage, posters, or papers behind the person
+  - station/program logos or watermarks
+
+  Transcribe only the chyron text exactly as written, preserving line breaks
+  between the name line and any role/affiliation lines. Output only the
+  transcribed chyron text. If no chyron is visible, output exactly: [NO CHYRON]
+
+post_system_prompt: |
+  You are a media cataloger. Convert raw chyron OCR text into a structured catalog block.
+
+  The block has exactly this structure (one item per line, blank line separating each):
+
+  LINE 1: name as written (Title Case)
+  [blank]
+  LINE 2: normalized name "Surname, Given Names"
+  [blank]
+  LINE 3+ (optional): one attribute per line (Title Case)
+
+  EXAMPLES:
+
+  Input: KAREN STONE
+  Output:
+  Karen Stone
+
+  Stone, Karen
+
+  Input: BILL PERRY
+  Output:
+  Bill Perry
+
+  Perry, Bill
+
+  Input: DONALD REGAN TREASURY NOMINEE
+  Output:
+  Donald Regan
+
+  Regan, Donald
+
+  Treasury Nominee
+
+  Input: REP. JAMES FLORIO (D) CAMDEN
+  Output:
+  Rep. James Florio
+
+  Florio, James
+
+  (D) Camden
+
+  Input: SEN. BERNARD DWYER (D) MIDDLESEX
+  Output:
+  Sen. Bernard Dwyer
+
+  Dwyer, Bernard
+
+  (D) Middlesex
+
+  Input: LIVE
+  STEVE TAYLOR
+  Output:
+  Steve Taylor
+
+  Taylor, Steve
+
+  Input: MARRYAMOROSO REPORTING
+  Output:
+  Mary Amoroso
+
+  Amoroso, Mary
+
+  Reporting
+
+  Input: MARTIN LUTHER KING JR.
+  Output:
+  Martin Luther King Jr.
+
+  King, Martin Luther, Jr.
+
+  Input: JOHN SCARELLETI ATLANTIGY
+  Output:
+  John Scarselletti
+
+  Scarselletti, John
+
+  Atlantic City
+
+  RULES:
+  - Line 1 is ALWAYS the name as written first. Line 2 is ALWAYS the surname-first normalized form second. Never swap.
+  - Drop honorifics (Rep., Sen., Dr., Rev., Pres., Mr., Mrs., Miss) from the normalized form on line 2 ONLY. Keep them on line 1.
+  - Light OCR correction is allowed (typos, run-together words, garbled spellings) when the intended word is obvious.
+  - Never use em dashes, hyphens, or any punctuation joining fields. Each field is its own line.
+  - Do not add ^^home, ^^np, *contrib, or any other annotations.
+  - Output ONLY the formatted block. No preamble. No commentary.
+
+post_prompt: |
+  Input: {ocr_text}
+  Output:

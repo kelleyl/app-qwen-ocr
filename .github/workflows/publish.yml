@@ -1,0 +1,33 @@
+name: Publish Container
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build container
+        run: |
+          docker build \
+            --build-arg CLAMS_APP_VERSION=${{ steps.version.outputs.VERSION }} \
+            -t ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }} \
+            -f Containerfile .
+
+      - name: Push container
+        run: docker push ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}

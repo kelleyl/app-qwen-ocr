@@ -1,0 +1,73 @@
+{
+  "metadata": {"mmif": "http://mmif.clams.ai/1.0.5"},
+  "documents": [
+    {
+      "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+      "properties": {
+        "mime": "video",
+        "id": "d1",
+        "location": "file:///path/to/your/video.mp4"
+      }
+    }
+  ],
+  "views": [
+    {
+      "id": "v_0",
+      "metadata": {
+        "timestamp": "2026-04-28T00:00:00",
+        "app": "http://apps.clams.ai/swt-detection/v8.3",
+        "contains": {
+          "http://mmif.clams.ai/vocabulary/TimePoint/v5": {
+            "document": "d1",
+            "timeUnit": "milliseconds"
+          }
+        }
+      },
+      "annotations": [
+        {
+          "@type": "http://mmif.clams.ai/vocabulary/TimePoint/v5",
+          "properties": {"id": "tp_1", "timePoint": 18018, "label": "Y"}
+        },
+        {
+          "@type": "http://mmif.clams.ai/vocabulary/TimePoint/v5",
+          "properties": {"id": "tp_2", "timePoint": 21522, "label": "Y"}
+        }
+      ]
+    },
+    {
+      "id": "v_1",
+      "metadata": {
+        "timestamp": "2026-04-28T00:00:00",
+        "app": "http://apps.clams.ai/swt-detection/v8.3",
+        "contains": {
+          "http://mmif.clams.ai/vocabulary/TimeFrame/v6": {
+            "document": "d1",
+            "timeUnit": "milliseconds"
+          }
+        }
+      },
+      "annotations": [
+        {
+          "@type": "http://mmif.clams.ai/vocabulary/TimeFrame/v6",
+          "properties": {
+            "id": "tf_1",
+            "label": "Chyron",
+            "start": 18018,
+            "end": 18018,
+            "representatives": ["v_0:tp_1"]
+          }
+        },
+        {
+          "@type": "http://mmif.clams.ai/vocabulary/TimeFrame/v6",
+          "properties": {
+            "id": "tf_2",
+            "label": "Chyron",
+            "start": 21522,
+            "end": 21554,
+            "representatives": ["v_0:tp_2"]
+          }
+        }
+      ]
+    }
+  ]
+}

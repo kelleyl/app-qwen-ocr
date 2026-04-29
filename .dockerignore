@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.github/
+*.md
+test_*.json
+test_*.mmif
+test_outputs/
+.idea/
+.vscode/
