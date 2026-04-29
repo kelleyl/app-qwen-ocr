@@ -79,8 +79,10 @@ def appmetadata() -> AppMetadata:
                     'otherwise only the first representative.',
     )
     metadata.add_parameter(
-        name='maxNewTokens', type='integer', default=200,
-        description='Max new tokens generated per inference call (both stages).',
+        name='maxNewTokens', type='integer', default=80,
+        description='Max new tokens generated per inference call (both stages). '
+                    'Sized for typical chyron length (longest observed: ~22 tokens; '
+                    'cap is ~3-4x that). Raise for longer credit-roll or slate text.',
     )
     metadata.add_parameter(
         name='temperature', type='number', default=0.0,
@@ -94,6 +96,14 @@ def appmetadata() -> AppMetadata:
                     'Higher values explore more decoding paths and can avoid character-drop '
                     'artifacts on proper nouns at the cost of ~20% more inference time. '
                     'Mutually exclusive with temperature > 0.',
+    )
+    metadata.add_parameter(
+        name='repetitionPenalty', type='number', default=1.0,
+        description='Repetition penalty applied during generation (both stages). '
+                    'Values > 1.0 discourage the model from repeating recently-emitted tokens. '
+                    '1.0 = off (default — combined with the maxNewTokens cap, runaway loops are '
+                    'already bounded). Raising to ~1.1 can shorten residual loop text further but '
+                    'risks light hallucination at higher values.',
     )
     metadata.add_parameter(
         name='config', type='string', default='',

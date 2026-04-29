@@ -121,7 +121,8 @@ class QwenOcr(ClamsApp):
     # ---------- inference ----------
 
     def _generate_batch(self, conversations: list, max_new_tokens: int,
-                        temperature: float = 0.0, num_beams: int = 1) -> list:
+                        temperature: float = 0.0, num_beams: int = 1,
+                        repetition_penalty: float = 1.0) -> list:
         """Run a batch through the model and return the generated strings."""
         inputs = self.processor.apply_chat_template(
             conversations,
@@ -146,6 +147,8 @@ class QwenOcr(ClamsApp):
             gen_kwargs['early_stopping'] = True
         else:
             gen_kwargs['do_sample'] = False
+        if repetition_penalty and repetition_penalty != 1.0:
+            gen_kwargs['repetition_penalty'] = repetition_penalty
 
         generated = self.model.generate(**inputs, **gen_kwargs)
         prompt_len = inputs.input_ids.shape[1]
@@ -154,7 +157,8 @@ class QwenOcr(ClamsApp):
         return [t.strip() for t in texts]
 
     def _ocr_batch(self, images: list, system_prompt: str, user_prompt: str,
-                   max_new_tokens: int, temperature: float = 0.0, num_beams: int = 1) -> list:
+                   max_new_tokens: int, temperature: float = 0.0, num_beams: int = 1,
+                   repetition_penalty: float = 1.0) -> list:
         conversations = []
         for img in images:
             messages = []
@@ -169,10 +173,11 @@ class QwenOcr(ClamsApp):
                 ],
             })
             conversations.append(messages)
-        return self._generate_batch(conversations, max_new_tokens, temperature, num_beams)
+        return self._generate_batch(conversations, max_new_tokens, temperature, num_beams, repetition_penalty)
 
     def _post_batch(self, ocr_texts: list, system_prompt: str, user_prompt_template: str,
-                    max_new_tokens: int, temperature: float = 0.0, num_beams: int = 1) -> list:
+                    max_new_tokens: int, temperature: float = 0.0, num_beams: int = 1,
+                   repetition_penalty: float = 1.0) -> list:
         conversations = []
         for ocr_text in ocr_texts:
             if '{ocr_text}' in user_prompt_template:
@@ -186,7 +191,7 @@ class QwenOcr(ClamsApp):
             messages.append({"role": "user",
                              "content": [{"type": "text", "text": user_prompt}]})
             conversations.append(messages)
-        return self._generate_batch(conversations, max_new_tokens, temperature, num_beams)
+        return self._generate_batch(conversations, max_new_tokens, temperature, num_beams, repetition_penalty)
 
     # ---------- target collection ----------
 
@@ -264,9 +269,10 @@ class QwenOcr(ClamsApp):
         app_uri = parameters.get('appUri', '')
         batch_size = int(parameters.get('batchSize', 8))
         all_reps = bool(parameters.get('allRepresentatives', False))
-        max_new_tokens = int(parameters.get('maxNewTokens', 200))
+        max_new_tokens = int(parameters.get('maxNewTokens', 80))
         temperature = float(parameters.get('temperature', 0.0))
         num_beams = int(parameters.get('numBeams', 1))
+        repetition_penalty = float(parameters.get('repetitionPenalty', 1.0))
 
         # 1. Find target timeframes
         timeframes = self._matching_timeframes(mmif, app_uri, labels)
@@ -307,7 +313,8 @@ class QwenOcr(ClamsApp):
             batch = sortable[i:i + batch_size]
             images = [frame_to_image[fnum] for _, _, fnum in batch]
             outputs = self._ocr_batch(
-                images, prompts['ocr_system'], prompts['ocr_user'], max_new_tokens, temperature, num_beams,
+                images, prompts['ocr_system'], prompts['ocr_user'], max_new_tokens,
+                temperature, num_beams, repetition_penalty,
             )
             for (source_id, origin_id, _), text in zip(batch, outputs):
                 # Create TD with text+mime via the canonical path; write
@@ -340,7 +347,8 @@ class QwenOcr(ClamsApp):
                 batch = ocr_records[i:i + batch_size]
                 texts_in = [r['text'] for r in batch]
                 texts_out = self._post_batch(
-                    texts_in, prompts['post_system'], prompts['post_user'], max_new_tokens, temperature, num_beams,
+                    texts_in, prompts['post_system'], prompts['post_user'], max_new_tokens,
+                    temperature, num_beams, repetition_penalty,
                 )
                 for rec, text in zip(batch, texts_out):
                     td = post_view.new_textdocument(text=text, mime='application/json')
