@@ -67,18 +67,56 @@ class QwenOcr(ClamsApp):
             return yaml.safe_load(f) or {}
 
     def _resolve_prompts(self, parameters: dict) -> dict:
-        """Merge CLI parameters with config file. CLI takes precedence."""
-        cfg_path = parameters.get('config')
+        """Merge CLI parameters with config file.
+
+        Resolution order: explicit CLI flag > config file value > metadata default.
+
+        We can't just check ``parameters.get('ocrPrompt')`` because ClamsApp
+        injects metadata defaults into the refined parameters dict. To
+        distinguish "user explicitly passed --ocrPrompt" from "default was
+        injected", we read from the ``#RAW#`` key which preserves the
+        original user inputs only.
+        """
+        raw = parameters.get('#RAW#', {}) or {}
+
+        def cli_value(key):
+            v = raw.get(key)
+            if isinstance(v, list):
+                return v[0] if v else None
+            return v
+
+        cfg_path = cli_value('config') or parameters.get('config') or ''
         cfg = self._load_config(cfg_path) if cfg_path else {}
+
+        def pick(cli_key, cfg_key):
+            v = cli_value(cli_key)
+            if v:
+                return v
+            if cfg.get(cfg_key):
+                return cfg[cfg_key]
+            return parameters.get(cli_key) or ''
+
         out = {
-            'ocr_system': parameters.get('ocrSystemPrompt') or cfg.get('ocr_system_prompt', ''),
-            'ocr_user': parameters.get('ocrPrompt') or cfg.get('ocr_prompt', ''),
-            'post_system': parameters.get('postSystemPrompt') or cfg.get('post_system_prompt', ''),
-            'post_user': parameters.get('postPrompt') or cfg.get('post_prompt', ''),
+            'ocr_system': pick('ocrSystemPrompt', 'ocr_system_prompt'),
+            'ocr_user': pick('ocrPrompt', 'ocr_prompt'),
+            'post_system': pick('postSystemPrompt', 'post_system_prompt'),
+            'post_user': pick('postPrompt', 'post_prompt'),
         }
         if not out['ocr_user']:
             raise ValueError("ocrPrompt must be provided (CLI or config)")
         return out
+
+    def _sign_view_with_resolved_prompts(self, view, parameters, prompts):
+        """Sign the view, then overwrite appConfiguration prompt fields with the
+        post-config-merge values so the recorded provenance reflects what the
+        app actually ran with (rather than the empty CLI defaults when prompts
+        come from a YAML config).
+        """
+        self.sign_view(view, parameters)
+        view.metadata.add_app_configuration('ocrPrompt', prompts['ocr_user'])
+        view.metadata.add_app_configuration('ocrSystemPrompt', prompts['ocr_system'])
+        view.metadata.add_app_configuration('postPrompt', prompts['post_user'])
+        view.metadata.add_app_configuration('postSystemPrompt', prompts['post_system'])
 
     # ---------- inference ----------
 
@@ -257,7 +295,7 @@ class QwenOcr(ClamsApp):
 
         # 3. Build the OCR view
         ocr_view: View = mmif.new_view()
-        self.sign_view(ocr_view, parameters)
+        self._sign_view_with_resolved_prompts(ocr_view, parameters, prompts)
         ocr_view.metadata.set_additional_property('stage', 'ocr')
         ocr_view.new_contain(DocumentTypes.TextDocument)
         ocr_view.new_contain(AnnotationTypes.Alignment)
@@ -293,7 +331,7 @@ class QwenOcr(ClamsApp):
         # 4. Optional post-processing view
         if prompts['post_user']:
             post_view: View = mmif.new_view()
-            self.sign_view(post_view, parameters)
+            self._sign_view_with_resolved_prompts(post_view, parameters, prompts)
             post_view.metadata.set_additional_property('stage', 'post-processing')
             post_view.new_contain(DocumentTypes.TextDocument)
             post_view.new_contain(AnnotationTypes.Alignment)
