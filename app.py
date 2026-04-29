@@ -150,6 +150,13 @@ class QwenOcr(ClamsApp):
         if repetition_penalty and repetition_penalty != 1.0:
             gen_kwargs['repetition_penalty'] = repetition_penalty
 
+        # Stop each sequence independently when it emits any of these
+        # template-leak sentinels. `stop_strings` does per-sequence matching
+        # (each beam ends at its own first hit) and accepts multi-token
+        # strings, unlike `eos_token_id` which requires single tokens.
+        gen_kwargs['stop_strings'] = ['\nInput:', '\nOutput:']
+        gen_kwargs['tokenizer'] = self.processor.tokenizer
+
         generated = self.model.generate(**inputs, **gen_kwargs)
         prompt_len = inputs.input_ids.shape[1]
         new_tokens = generated[:, prompt_len:]
